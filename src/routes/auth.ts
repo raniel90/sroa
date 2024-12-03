@@ -6,27 +6,27 @@ import {
   register,
   resetPassword,
 } from '../controllers/auth.controller';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerDocument } from '../docs/swagger';
+import passport from 'passport';
+
 
 export default (app: any) => {
   const router = Router();
 
-  // Mount route as "/api/app"
   app.use('/api', router);
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
   router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, client } = req.body;
-      const response = await login(email, password, client);
-      if (response) {
-        return res.json(response);
-      }
-      return res
-        .status(401)
-        .json({ message: 'The username or password is wrong please check and try again' });
+      const { email, password } = req.body;
+      const response = await login(email, password);
+      return res.status(200).json(response);
     } catch (error) {
       return next(error);
     }
-  });
+  }
+  );
 
   router.post('/register', async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -35,11 +35,21 @@ export default (app: any) => {
         return res.status(403).json({ success: false, message: 'User already exists' });
       }
       if (response) {
-        return res.status(201).json({ success: true, response });
+        return res.status(200).json({ success: true, response });
       }
       return res.status(204).json({});
     } catch (error) {
       return next(error);
+    }
+  });
+
+  router.post('/validate-token', passport.authenticate('jwt', { session: false }), (req: Request, res: Response, next: NextFunction) => {
+    const user: any = req.user;
+
+    try {
+      res.status(200).json({ token: req.headers['authorization'].split(' ')[1], userId: user._id });
+    } catch (error) {
+      return res.status(401).json({ message: 'Token not valid.' });
     }
   });
 

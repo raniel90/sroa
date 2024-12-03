@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as JWTStrategy, ExtractJwt } from 'passport-jwt';
-import { User } from '../models/user';
+import { User, UserModel } from '../models/user';
 import { Request } from 'express';
 
 // const FacebookStrategy = passportFacebook.Strategy;
@@ -10,17 +10,19 @@ const jwtOptions = {
   secretOrKey: process.env['JWT_SECRET'],
 };
 
-// lets create our strategy for web token
-const jwtStrategy = new JWTStrategy(jwtOptions, function (user, next) {
-  if (user) {
-    next(null, user);
-  } else {
-    next(null, false);
-  }
-});
-
-// use the strategy
-passport.use(jwtStrategy);
+passport.use(
+  new JWTStrategy(jwtOptions, async (jwtPayload, done) => {
+    try {
+      const user = await UserModel.findById(jwtPayload.id);
+      if (user) {
+        return done(null, user);
+      }
+      return done(null, false);
+    } catch (error) {
+      return done(error, false);
+    }
+  })
+);
 
 /**
  * OAuth Strategy Overview

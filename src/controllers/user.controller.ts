@@ -3,6 +3,7 @@ import createError from 'http-errors';
 import { hashPassword } from '../helpers/hash.helper';
 import { Role } from '../models/role';
 import { IPatch } from '../models/ipatch';
+import { PaginateOptions } from 'mongoose-paginate-v2';
 
 const changePassword = (attr: IPatch) => {
   if (attr.path === '/password') {
@@ -16,7 +17,7 @@ export const addUser = async (newUser: any, user: any) => {
     throw createError(403, 'You are not authorized to access');
   }
   try {
-    const existingUser = await UserModel.getByEmail(newUser.email, false);
+    const existingUser = await UserModel.getByEmail(newUser.email);
     if (existingUser) {
       return {
         exists: true,
@@ -51,7 +52,13 @@ export const getUsers = async (user: any, page: number, limit: number, query?: a
         }
       });
     }
-    const users = await UserModel.getUsers(page, limit, parsedFilter);
+
+    const options: PaginateOptions = {
+      page: page,
+      limit: limit
+    };
+
+    const users = await UserModel.getUsers(options, parsedFilter);
     return users;
   } catch (error) {
     throw error;
@@ -63,7 +70,7 @@ export const getUser = async (userId: string, user: any) => {
     throw createError(403, 'You are not authorized to access');
   }
   try {
-    const users = await UserModel.getById(userId, true);
+    const users = await UserModel.getById(userId);
     return users;
   } catch (error) {
     throw error;
@@ -101,13 +108,37 @@ export const deleteUser = async (userId: string, user: any) => {
   }
 };
 
-export const getAllUsers = async (userId: string, user: any) => {
-  // get all members from user collection
+export const getAllUsers = async (
+  userId: string,
+  user: any,
+  page: number = 1,
+  limit: number = 10,
+  filters: any = {}
+) => {
   if (userId !== user.id && !user.roles.includes(Role.Admin)) {
     throw createError(403, 'You are not authorized to access');
   }
+
   try {
-    const response = await UserModel.getUsers;
+    const parsedFilter: any = {};
+
+    if (filters.name) {
+      parsedFilter.name = { $regex: filters.name, $options: 'i' };
+    }
+
+    if (filters.email) {
+      parsedFilter.email = filters.email;
+    }
+
+    const options: PaginateOptions = {
+      page: page,
+      limit: limit,
+      lean: true,
+      sort: { name: 1 },
+      select: '-password',
+    };
+
+    const response = await UserModel.getUsers(parsedFilter, options);
     return response;
   } catch (error) {
     throw error;
@@ -119,7 +150,7 @@ export const getUserByEmail = async (userId: string, user: any, email: string) =
   if (userId !== user.id && !user.roles.includes(Role.Admin)) {
     throw createError(403, 'You are not authorized to access');
   }
-  const existingUser = await UserModel.getByEmail(email, false);
+  const existingUser = await UserModel.getByEmail(email);
   if (existingUser) {
     return {
       existingUser,
@@ -129,7 +160,7 @@ export const getUserByEmail = async (userId: string, user: any, email: string) =
 
 export const getUserById = async (userId: string, user: any, id: string) => {
   // get all members from user collection
-  const existingUser = await UserModel.getById(id, false);
+  const existingUser = await UserModel.getById(id);
   if (existingUser) {
     return {
       existingUser,
